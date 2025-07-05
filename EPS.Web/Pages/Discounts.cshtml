@@ -1,0 +1,170 @@
+@page "/"
+@model EPS.Web.Pages.Discounts
+
+@{
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Promo Code Generator</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"/>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.5/signalr.min.js"
+            crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+</head>
+<body class="bg-light">
+<div class="container py-5">
+    <h1 class="mb-4 text-center">🎉 EPS Promo Code Generator</h1>
+
+    <div class="text-center mb-3">
+        <button id="generateBtn" class="btn btn-primary px-4 py-2" disabled>
+            Generate Promo Codes
+        </button>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <h5>Status</h5>
+            <ul class="list-group">
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    Codes Generated This Session:
+                    <span class="badge bg-success" id="generatedCount">0</span>
+                </li>
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    Total Codes in File:
+                    <span class="badge bg-secondary" id="totalCount">Loading...</span>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="card my-4 shadow-sm">
+        <div class="card-body">
+            <h5 class="card-title">Use Code</h5>
+            <div class="input-group mb-3">
+                <input type="text" class="form-control" id="codeToUse" placeholder="code">
+                <button class="btn btn-primary" onclick="useCode()">Use</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card my-4 shadow-sm">
+        <div class="card-body">
+            <h5 class="card-title">Verify code exists</h5>
+            <div class="input-group mb-3">
+                <input type="text" class="form-control" id="codeToCheck" placeholder="code to verify">
+                <button class="btn btn-secondary" onclick="checkCode()">Verify</button>
+            </div>
+            <div id="checkResult" class="mt-2"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let connection;
+    let generatedSessionCount = 0;
+
+    async function startConnection() {
+        connection = new signalR.HubConnectionBuilder()
+            .withUrl("http://localhost:5000/discountHub")
+            .withAutomaticReconnect()
+            .configureLogging(signalR.LogLevel.Information)
+            .build();
+
+        try {
+            await connection.start();
+            console.log("Connected to the Hub!");
+            document.getElementById("generateBtn").disabled = false;
+            await updateTotalCount();
+        } catch (err) {
+            console.error("Failed to connect to the Hub:", err);
+        }
+    }
+
+    async function updateTotalCount() {
+        try {
+            const count = await connection.invoke("GetTotalCodes");
+            document.getElementById("totalCount").textContent = count;
+        } catch (err) {
+            console.error("⚠Failed to retrieve total count:", err);
+            document.getElementById("totalCount").textContent = "Error";
+        }
+    }
+
+    async function useCode() {
+        const code = document.getElementById("codeToUse").value;
+
+        if (connection && connection.state === "Connected") {
+            try {
+                const result = await connection.invoke("UseCode", code);
+
+                if (result === 1) {
+                    alert(`Code "${code}" was successfully used.`);
+                    await updateTotalCount();
+                } else {
+                    alert(`Code "${code}" does not exist or has already been used.`);
+                }
+            } catch (err) {
+                console.error("Error while using code:", err);
+                alert("Failed to use the code. Please try again.");
+            }
+        } else {
+            alert("hub connection is not active.");
+        }
+    }
+
+    async function generateCodes() {
+        if (connection && connection.state === "Connected") {
+            try {
+                await connection.send("GenerateCodes", 2000, 7);
+                generatedSessionCount += 1;
+                document.getElementById("generatedCount").textContent = generatedSessionCount;
+                await updateTotalCount();
+                console.log("Code generation requested.");
+            } catch (err) {
+                console.error("⚠Failed to send generation request:", err);
+            }
+        } else {
+            console.warn("Hub is not connected.");
+        }
+    }
+
+    async function checkCode() {
+        const code = document.getElementById("codeToCheck").value;
+        const resultEl = document.getElementById("checkResult");
+
+        if (!code.trim()) {
+            resultEl.innerHTML = `<span class="text-warning">⚠Please enter a valid code.</span>`;
+            return;
+        }
+
+        if (connection && connection.state === "Connected") {
+            try {
+                const exists = await connection.invoke("CheckIfCodeExists", code);
+
+                if (exists) {
+                    resultEl.innerHTML = `<span class="text-success">Code <strong>${code}</strong> exists.</span>`;
+                } else {
+                    resultEl.innerHTML = `<span class="text-danger">Code <strong>${code}</strong> was not found.</span>`;
+                }
+            } catch (err) {
+                console.error("Error checking code:", err);
+                resultEl.innerHTML = `<span class="text-danger">Failed to check the code. Please try again later.</span>`;
+            }
+        } else {
+            resultEl.innerHTML = `<span class="text-danger">Hub connection is not active.</span>`;
+        }
+    }
+
+    window.addEventListener("load", () => {
+        startConnection();
+        document.getElementById("generateBtn").addEventListener("click", generateCodes);
+    });
+</script>
+</body>
+</html>

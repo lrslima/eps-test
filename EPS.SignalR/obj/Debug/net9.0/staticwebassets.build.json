@@ -1,0 +1,12 @@
+{
+  "Version": 1,
+  "Hash": "qAShnHsyLNhL2Xv3q3WZauLohVNjfIVbF2HiqG/Ko/o=",
+  "Source": "EPS.SignalR",
+  "BasePath": "_content/EPS.SignalR",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": [],
+  "Endpoints": []
+}

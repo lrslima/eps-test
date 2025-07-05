@@ -1,0 +1,3 @@
+﻿<Project>
+  <Import Project="../build/EPS.Web.props" />
+</Project>
